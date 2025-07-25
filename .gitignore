@@ -1,0 +1,216 @@
+# RAG Pipeline with Ollama - .gitignore
+
+# Environment and Configuration
+.env
+.env.local
+.env.*.local
+config.yaml
+config.yml
+secrets.yaml
+secrets.yml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+virtualenv/
+.virtualenv/
+
+# IDE and Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+
+# Database and Storage
+chroma_db/
+*.db
+*.sqlite
+*.sqlite3
+chromadb.log
+
+# PDF Storage
+pdf_storage/
+uploads/
+documents/
+
+# Ollama Models (large files)
+ollama_models/
+*.bin
+*.gguf
+*.safetensors
+models/
+
+# Logs
+logs/
+*.log
+*.log.*
+log_*.txt
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+docker-compose.*.yml
+!docker-compose.yml
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# Temporary Files
+tmp/
+temp/
+*.tmp
+*.temp
+.cache/
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Backup Files
+*.bak
+*.backup
+*.old
+*~
+
+# Performance and Monitoring
+*.prof
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# CI/CD
+.github/secrets/
+.gitlab-ci-local/
+
+# Package Files
+*.tar.gz
+*.zip
+*.rar
+*.7z
+
+# API Documentation
+docs/_build/
+docs/build/
+site/
+
+# Node.js (if using Node for frontend)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Security
+*.key
+*.pem
+*.crt
+*.csr
+*.p12
+*.pfx
+*.jks
+keystore
+.secrets/
+
+# Local Development
+.local/
+local_*
+dev_*
+test_*
+debug_*
+
+# Weights and Biases
+wandb/
+
+# Large Data Files
+*.csv
+*.json
+*.parquet
+*.h5
+*.hdf5
+*.pickle
+*.pkl
+
+# Temporary Upload Files
+upload_tmp/
+temp_uploads/
+
+# Monitoring Data
+prometheus_data/
+grafana_data/
+
+# Backup and Archive
+backup/
+archive/
+*.tar
+*.gz
+*.bz2
+*.xz
+
+# Editor Specific
+.sublime-project
+.sublime-workspace
+*.sublime-*
+
+# JetBrains
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# Custom Project Excludes
+experimental/
+sandbox/
+playground/
+scratch/

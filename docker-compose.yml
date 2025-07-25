@@ -1,0 +1,97 @@
+# =============================================================================
+# FILE: docker-compose.yml
+# =============================================================================
+version: '3.8'
+
+services:
+  # Source Database (simulating legacy system)
+  source_db:
+    image: postgres:15
+    container_name: mapping_validator_source_db
+    environment:
+      POSTGRES_DB: source_system
+      POSTGRES_USER: source_user
+      POSTGRES_PASSWORD: source_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - source_data:/var/lib/postgresql/data
+      - ./sql/init_source.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - validator_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U source_user -d source_system"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Target Database (simulating new system)
+  target_db:
+    image: postgres:15
+    container_name: mapping_validator_target_db
+    environment:
+      POSTGRES_DB: target_system
+      POSTGRES_USER: target_user
+      POSTGRES_PASSWORD: target_pass
+    ports:
+      - "5433:5432"
+    volumes:
+      - target_data:/var/lib/postgresql/data
+      - ./sql/init_target.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - validator_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U target_user -d target_system"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Data Mapping Validator Application
+  validator:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: mapping_validator_app
+    depends_on:
+      source_db:
+        condition: service_healthy
+      target_db:
+        condition: service_healthy
+    environment:
+      SOURCE_DB_HOST: source_db
+      SOURCE_DB_PORT: 5432
+      SOURCE_DB_NAME: source_system
+      SOURCE_DB_USER: source_user
+      SOURCE_DB_PASSWORD: source_pass
+      TARGET_DB_HOST: target_db
+      TARGET_DB_PORT: 5432
+      TARGET_DB_NAME: target_system
+      TARGET_DB_USER: target_user
+      TARGET_DB_PASSWORD: target_pass
+      PYTHONPATH: /app
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models
+      - ./reports:/app/reports
+      - ./mappings:/app/mappings
+      - ./schemas:/app/schemas
+      - ./logs:/app/logs
+    networks:
+      - validator_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  validator_network:
+    driver: bridge
+
+volumes:
+  source_data:
+    driver: local
+  target_data:
+    driver: local
