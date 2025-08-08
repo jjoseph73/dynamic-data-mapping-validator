@@ -1,0 +1,317 @@
+# monitoring/prometheus.yml - Prometheus Configuration
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "/etc/prometheus/rules/*.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Application metrics
+  - job_name: 'ddmv-app'
+    static_configs:
+      - targets: ['app:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Node Exporter (system metrics)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # PostgreSQL metrics
+  - job_name: 'postgres-exporter'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  # Redis metrics
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  # Nginx metrics
+  - job_name: 'nginx-exporter'
+    static_configs:
+      - targets: ['nginx-exporter:9113']
+
+---
+# monitoring/alerting-rules.yml - Alerting Rules
+
+groups:
+  - name: application_alerts
+    rules:
+      # High response time
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, http_request_duration_seconds_bucket{job="ddmv-app"}) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response time detected"
+          description: "95th percentile response time is {{ $value }}s"
+
+      # High error rate
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{job="ddmv-app",status=~"5.."}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }} requests/second"
+
+      # Application down
+      - alert: ApplicationDown
+        expr: up{job="ddmv-app"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Application is down"
+          description: "The application has been down for more than 1 minute"
+
+  - name: database_alerts
+    rules:
+      # High database connections
+      - alert: HighDatabaseConnections
+        expr: pg_stat_database_numbackends / pg_settings_max_connections * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High database connection usage"
+          description: "Database connection usage is {{ $value }}%"
+
+      # Long running queries
+      - alert: LongRunningQueries
+        expr: pg_stat_activity_max_tx_duration{datname="ddmv_db"} > 300
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Long running database queries detected"
+          description: "Query running for {{ $value }} seconds"
+
+      # Database down
+      - alert: DatabaseDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database is down"
+          description: "PostgreSQL database is not responding"
+
+  - name: system_alerts
+    rules:
+      # High CPU usage
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is {{ $value }}%"
+
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is {{ $value }}%"
+
+      # Low disk space
+      - alert: LowDiskSpace
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 10
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Low disk space"
+          description: "Disk space is {{ $value }}% full"
+
+  - name: ml_model_alerts
+    rules:
+      # Model prediction accuracy drop
+      - alert: ModelAccuracyDrop
+        expr: model_accuracy < 0.85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ML model accuracy dropped"
+          description: "Model accuracy is {{ $value }}, below threshold of 0.85"
+
+      # High prediction latency
+      - alert: HighPredictionLatency
+        expr: histogram_quantile(0.95, prediction_duration_seconds_bucket) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High ML prediction latency"
+          description: "95th percentile prediction time is {{ $value }}s"
+
+---
+# monitoring/docker-compose.monitoring.yml - Monitoring Stack
+
+version: '3.8'
+
+services:
+  # Node Exporter for system metrics
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: ddmv-node-exporter
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - ddmv-network
+
+  # PostgreSQL Exporter
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: ddmv-postgres-exporter
+    restart: unless-stopped
+    ports:
+      - "9187:9187"
+    environment:
+      DATA_SOURCE_NAME: "postgresql://ddmv_user:${DB_PASSWORD}@postgres:5432/ddmv_db?sslmode=disable"
+    depends_on:
+      - postgres
+    networks:
+      - ddmv-network
+
+  # Redis Exporter
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: ddmv-redis-exporter
+    restart: unless-stopped
+    ports:
+      - "9121:9121"
+    environment:
+      REDIS_ADDR: "redis://redis:6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD}"
+    depends_on:
+      - redis
+    networks:
+      - ddmv-network
+
+  # Nginx Exporter
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:latest
+    container_name: ddmv-nginx-exporter
+    restart: unless-stopped
+    ports:
+      - "9113:9113"
+    command:
+      - '-nginx.scrape-uri=http://nginx:8080/nginx_status'
+    depends_on:
+      - nginx
+    networks:
+      - ddmv-network
+
+  # Alertmanager
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: ddmv-alertmanager
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://localhost:9093'
+    networks:
+      - ddmv-network
+
+volumes:
+  alertmanager_data:
+
+networks:
+  ddmv-network:
+    external: true
+
+---
+# monitoring/alertmanager.yml - Alertmanager Configuration
+
+global:
+  smtp_smarthost: 'localhost:587'
+  smtp_from: 'ddmv-alerts@your-domain.com'
+
+route:
+  group_by: ['alertname']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'web.hook'
+  routes:
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+    - match:
+        severity: warning
+      receiver: 'warning-alerts'
+
+receivers:
+  - name: 'web.hook'
+    webhook_configs:
+      - url: 'http://localhost:5001/'
+
+  - name: 'critical-alerts'
+    email_configs:
+      - to: 'admin@your-domain.com'
+        subject: '🚨 CRITICAL: {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          {{ end }}
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#alerts'
+        title: '🚨 CRITICAL ALERT'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+
+  - name: 'warning-alerts'
+    email_configs:
+      - to: 'ops@your-domain.com'
+        subject: '⚠️ WARNING: {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          {{ end }}
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#warnings'
+        title: '⚠️ WARNING'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'

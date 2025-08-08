@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Dynamic Data Mapping Validator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .header h1 {
+            color: #2d3748;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            color: #64748b;
+            font-size: 1.1rem;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 10px;
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .nav-tab {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .nav-tab:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .nav-tab.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .card h3 {
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #4a5568;
+            font-weight: 500;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #718096, #4a5568);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f56565, #e53e3e);
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-online {
+            background: #48bb78;
+            box-shadow: 0 0 10px rgba(72, 187, 120, 0.5);
+        }
+
+        .status-offline {
+            background: #f56565;
+        }
+
+        .validation-result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .validation-result.success {
+            border-left-color: #48bb78;
+            background: rgba(72, 187, 120, 0.1);
+        }
+
+        .validation-result.error {
+            border-left-color: #f56565;
+            background: rgba(245, 101, 101, 0.1);
+        }
+
+        .mapping-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .mapping-item {
+            background: #f7fafc;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+
+        .mapping-item:hover {
+            background: #edf2f7;
+            border-color: #cbd5e0;
+        }
+
+        .mapping-item h4 {
+            color: #2d3748;
+            margin-bottom: 8px;
+        }
+
+        .mapping-item p {
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 20px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #64748b;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .metric-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .json-editor {
+            font-family: 'Courier New', monospace;
+            background: #2d3748;
+            color: #e2e8f0;
+            border: none;
+            padding: 15px;
+            border-radius: 8px;
+            resize: vertical;
+            min-height: 200px;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid transparent;
+        }
+
+        .alert-info {
+            background: rgba(102, 126, 234, 0.1);
+            border-color: rgba(102, 126, 234, 0.2);
+            color: #2d3748;
+        }
+
+        .alert-success {
+            background: rgba(72, 187, 120, 0.1);
+            border-color: rgba(72, 187, 120, 0.2);
+            color: #2d3748;
+        }
+
+        .alert-danger {
+            background: rgba(245, 101, 101, 0.1);
+            border-color: rgba(245, 101, 101, 0.2);
+            color: #2d3748;
+        }
+
+        @media (max-width: 768px) {
+            .nav-tabs {
+                flex-wrap: wrap;
+            }
+            
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 AI Dynamic Data Mapping Validator</h1>
+            <p>Oracle to PostgreSQL Migration Assistant with Machine Learning Validation</p>
+        </div>
+
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="showTab('dashboard')">Dashboard</button>
+            <button class="nav-tab" onclick="showTab('validation')">Validation</button>
+            <button class="nav-tab" onclick="showTab('mappings')">Mappings</button>
+            <button class="nav-tab" onclick="showTab('model')">ML Model</button>
+            <button class="nav-tab" onclick="showTab('health')">System Health</button>
+        </div>
+
+        <!-- Dashboard Tab -->
+        <div id="dashboard" class="tab-content active">
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-value" id="totalMappings">0</div>
+                    <div class="metric-label">Total Mappings</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="validationAccuracy">0%</div>
+                    <div class="metric-label">Model Accuracy</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="systemStatus">
+                        <span class="status-indicator status-offline"></span>Checking...
+                    </div>
+                    <div class="metric-label">System Status</div>
+                </div>
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="card">
+                    <h3>📊 Recent Validations</h3>
+                    <div class="chart-container">
+                        <canvas id="validationChart"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>🎯 Model Performance</h3>
+                    <div class="chart-container">
+                        <canvas id="performanceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Validation Tab -->
+        <div id="validation" class="tab-content">
+            <div class="dashboard-grid">
+                <div class="card">
+                    <h3>🔍 Single Column Validation</h3>
+                    <div class="form-group">
+                        <label for="sourceColumn">Source Column (Oracle)</label>
+                        <input type="text" id="sourceColumn" class="form-control" placeholder="e.g., USER_ID">
+                    </div>
+                    <div class="form-group">
+                        <label for="targetColumn">Target Column (PostgreSQL)</label>
+                        <input type="text" id="targetColumn" class="form-control" placeholder="e.g., user_id">
+                    </div>
+                    <div class="form-group">
+                        <label for="sourceType">Source Data Type</label>
+                        <input type="text" id="sourceType" class="form-control" placeholder="e.g., NUMBER(10)">
+                    </div>
+                    <div class="form-group">
+                        <label for="targetType">Target Data Type</label>
+                        <input type="text" id="targetType" class="form-control" placeholder="e.g., INTEGER">
+                    </div>
+                    <button class="btn" onclick="validateColumn()">Validate Column</button>
+                    <div id="columnValidationResult"></div>
+                </div>
+
+                <div class="card">
+                    <h3>📋 Table Mapping Validation</h3>
+                    <div class="form-group">
+                        <label for="sourceTable">Source Table</label>
+                        <input type="text" id="sourceTable" class="form-control" placeholder="e.g., USERS">
+                    </div>
+                    <div class="form-group">
+                        <label for="targetTable">Target Table</label>
+                        <input type="text" id="targetTable" class="form-control" placeholder="e.g., users">
+                    </div>
+                    <button class="btn" onclick="validateTable()">Validate Table</button>
+                    <div id="tableValidationResult"></div>
+                </div>
+
+                <div class="card">
+                    <h3>🔄 Batch Validation</h3>
+                    <div class="form-group">
+                        <label for="batchMappings">Mapping Configuration (JSON)</label>
+                        <textarea id="batchMappings" class="form-control json-editor" rows="8" placeholder='[
+  {
+    "source_column": "USER_ID",
+    "target_column": "user_id",
+    "source_type": "NUMBER(10)",
+    "target_type": "INTEGER"
+  }
+]'></textarea>
+                    </div>
+                    <button class="btn" onclick="validateBatch()">Validate Batch</button>
+                    <button class="btn btn-secondary" onclick="loadSampleMapping()">Load Sample</button>
+                    <div id="batchValidationResult"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mappings Tab -->
+        <div id="mappings" class="tab-content">
+            <div class="dashboard-grid">
+                <div class="card">
+                    <h3>📁 Mapping Management</h3>
+                    <button class="btn" onclick="loadMappings()">Refresh Mappings</button>
+                    <button class="btn btn-success" onclick="showCreateMapping()">Create New</button>
+                    <div id="mappingsList" class="mapping-list"></div>
+                </div>
+
+                <div class="card">
+                    <h3>➕ Create/Edit Mapping</h3>
+                    <div class="form-group">
+                        <label for="mappingName">Mapping Name</label>
+                        <input type="text" id="mappingName" class="form-control" placeholder="e.g., users_table_mapping">
+                    </div>
+                    <div class="form-group">
+                        <label for="mappingConfig">Mapping Configuration (JSON)</label>
+                        <textarea id="mappingConfig" class="form-control json-editor" rows="10" placeholder='{
+  "table_name": "users",
+  "columns": [
+    {
+      "source_column": "USER_ID",
+      "target_column": "user_id",
+      "source_type": "NUMBER(10)",
+      "target_type": "INTEGER"
+    }
+  ]
+}'></textarea>
+                    </div>
+                    <button class="btn" onclick="saveMapping()">Save Mapping</button>
+                    <button class="btn btn-secondary" onclick="clearMappingForm()">Clear</button>
+                    <div id="mappingSaveResult"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Model Tab -->
+        <div id="model" class="tab-content">
+            <div class="dashboard-grid">
+                <div class="card">
+                    <h3>🧠 Model Training</h3>
+                    <div class="alert alert-info">
+                        <strong>Current Model:</strong> Random Forest Classifier<br>
+                        <strong>Features:</strong> Column names, data types, constraints, relationships
+                    </div>
+                    <button class="btn" onclick="trainModel()">Retrain Model</button>
+                    <button class="btn btn-secondary" onclick="getModelInfo()">Model Info</button>
+                    <div id="modelTrainingResult"></div>
+                </div>
+
+                <div class="card">
+                    <h3>📈 Model Metrics</h3>
+                    <div id="modelMetrics">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            Loading model metrics...
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>🔧 Model Configuration</h3>
+                    <div class="form-group">
+                        <label for="maxDepth">Max Depth</label>
+                        <input type="number" id="maxDepth" class="form-control" value="10">
+                    </div>
+                    <div class="form-group">
+                        <label for="nEstimators">Number of Estimators</label>
+                        <input type="number" id="nEstimators" class="form-control" value="100">
+                    </div>
+                    <button class="btn" onclick="updateModelConfig()">Update Config</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Health Tab -->
+        <div id="health" class="tab-content">
+            <div class="dashboard-grid">
+                <div class="card">
+                    <h3>💚 System Health</h3>
+                    <button class="btn" onclick="checkHealth()">Check Health</button>
+                    <div id="healthStatus"></div>
+                </div>
+
+                <div class="card">
+                    <h3>🔧 Database Connections</h3>
+                    <div class="form-group">
+                        <label for="oracleHost">Oracle Host</label>
+                        <input type="text" id="oracleHost" class="form-control" placeholder="localhost">
+                    </div>
+                    <div class="form-group">
+                        <label for="postgresHost">PostgreSQL Host</label>
+                        <input type="text" id="postgresHost" class="form-control" placeholder="localhost">
+                    </div>
+                    <button class="btn" onclick="testConnections()">Test Connections</button>
+                    <div id="connectionTestResult"></div>
+                </div>
+
+                <div class="card">
+                    <h3>📊 System Metrics</h3>
+                    <div id="systemMetrics">
+                        <div class="loading show">
+                            <div class="spinner"></div>
+                            Loading system metrics...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API Base URL - adjust this to match your FastAPI server
+        const API_BASE_URL = 'http://localhost:8000';
+
+        // Global variables for charts
+        let validationChart = null;
+        let performanceChart = null;
+
+        // Tab management
+        function showTab(tabName) {
+            // Hide all tab contents
+            const tabContents = document.querySelectorAll('.tab-content');
+            tabContents.forEach(tab => tab.classList.remove('active'));
+
+            // Remove active class from all nav tabs
+            const navTabs = document.querySelectorAll('.nav-tab');
+            navTabs.forEach(tab => tab.classList.remove('active'));
+
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+
+            // Add active class to clicked nav tab
+            event.target.classList.add('active');
+
+            // Initialize tab-specific content
+            if (tabName === 'dashboard') {
+                initializeDashboard();
+            } else if (tabName === 'health') {
+                checkHealth();
+            }
+        }
+
+        // Initialize dashboard
+        function initializeDashboard() {
+            updateMetrics();
+            initializeCharts();
+        }
+
+        // Update dashboard metrics
+        async function updateMetrics() {
+            try {
+                // Get system health
+                const healthResponse = await fetch(`${API_BASE_URL}/health`);
+                if (healthResponse.ok) {
+                    const healthData = await healthResponse.json();
+                    document.getElementById('systemStatus').innerHTML = 
+                        '<span class="status-indicator status-online"></span>Online';
+                } else {
+                    document.getElementById('systemStatus').innerHTML = 
+                        '<span class="status-indicator status-offline"></span>Offline';
+                }
+
+                // Get model info
+                const modelResponse = await fetch(`${API_BASE_URL}/model/info`);
+                if (modelResponse.ok) {
+                    const modelData = await modelResponse.json();
+                    document.getElementById('validationAccuracy').textContent = 
+                        `${(modelData.accuracy * 100).toFixed(1)}%`;
+                }
+
+                // Get mappings count
+                const mappingsResponse = await fetch(`${API_BASE_URL}/mappings`);
+                if (mappingsResponse.ok) {
+                    const mappingsData = await mappingsResponse.json();
+                    document.getElementById('totalMappings').textContent = mappingsData.length;
+                }
+            } catch (error) {
+                console.error('Error updating metrics:', error);
+                document.getElementById('systemStatus').innerHTML = 
+                    '<span class="status-indicator status-offline"></span>Error';
+            }
+        }
+
+        // Initialize charts
+        function initializeCharts() {
+            // Validation trend chart
+            const validationCtx = document.getElementById('validationChart');
+            if (validationCtx && !validationChart) {
+                validationChart = new Chart(validationCtx, {
+                    type: 'line',
+                    data: {
+                        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                        datasets: [{
+                            label: 'Successful Validations',
+                            data: [65, 78, 82, 88, 92, 95],
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Performance chart
+            const performanceCtx = document.getElementById('performanceChart');
+            if (performanceCtx && !performanceChart) {
+                performanceChart = new Chart(performanceCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Correct', 'Incorrect'],
+                        datasets: [{
+                            data: [92, 8],
+                            backgroundColor: ['#48bb78', '#f56565'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Validation functions
+        async function validateColumn() {
+            const sourceColumn = document.getElementById('sourceColumn').value;
+            const targetColumn = document.getElementById('targetColumn').value;
+            const sourceType = document.getElementById('sourceType').value;
+            const targetType = document.getElementById('targetType').value;
+
+            if (!sourceColumn || !targetColumn || !sourceType || !targetType) {
+                showResult('columnValidationResult', 'Please fill in all fields', 'error');
+                return;
+            }
+
+            showLoading('columnValidationResult');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/validate/column`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        source_column: sourceColumn,
+                        target_column: targetColumn,
+                        source_type: sourceType,
+                        target_type: targetType
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    const isValid = result.is_valid;
+                    const confidence = (result.confidence * 100).toFixed(1);
+                    const message = `
+                        <strong>Validation Result:</strong> ${isValid ? '✅ Valid' : '❌ Invalid'}<br>
+                        <strong>Confidence:</strong> ${confidence}%<br>
+                        <strong>Recommendation:</strong> ${result.recommendation}
+                    `;
+                    showResult('columnValidationResult', message, isValid ? 'success' : 'error');
+                } else {
+                    showResult('columnValidationResult', `Error: ${result.detail}`, 'error');
+                }
+            } catch (error) {
+                showResult('columnValidationResult', `Network error: ${error.message}`, 'error');
+            }
+        }
+
+        async function validateTable() {
+            const sourceTable = document.getElementById('sourceTable').value;
+            const targetTable = document.getElementById('targetTable').value;
+
+            if (!sourceTable || !targetTable) {
+                showResult('tableValidationResult', 'Please fill in both table names', 'error');
+                return;
+            }
+
+            showLoading('tableValidationResult');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/validate/table`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        source_table: sourceTable,
+                        target_table: targetTable
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    const isValid = result.is_valid;
+                    const confidence = (result.confidence * 100).toFixed(1);
+                    const message = `
+                        <strong>Table Validation:</strong> ${isValid ? '✅ Valid' : '❌ Invalid'}<br>
+                        <strong>Confidence:</strong> ${confidence}%<br>
+                        <strong>Issues Found:</strong> ${result.issues ? result.issues.length : 0}<br>
+                        <strong>Recommendation:</strong> ${result.recommendation}
+                    `;
+                    showResult('tableValidationResult', message, isValid ? 'success' : 'error');
+                } else {
+                    showResult('tableValidationResult', `Error: ${result.detail}`, 'error');
+                }
+            } catch (error) {
+                showResult('tableValidationResult', `Network error: ${error.message}`, 'error');
+            }
+        }
+
+        async function validateBatch() {
+            const mappingsText = document.getElementById('batchMappings').value;
+
+            if (!mappingsText.trim()) {
+                showResult('batchValidationResult', 'Please enter mapping configuration', 'error');
+                return;
+            }
+
+            try {
+                const mappings = JSON.parse(mappingsText);
+                showLoading('batchValidationResult');
+
+                const response = await fetch(`${API_BASE_URL}/validate/batch`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ mappings })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    const validCount = result.results.filter(r => r.is_valid).length;
+                    const totalCount = result.results.length;
+                    const avgConfidence = (result.results.reduce((sum, r) => sum + r.confidence, 0) / totalCount * 100).toFixed(1);
+                    
+                    const message = `
+                        <strong>Batch Validation Complete</strong><br>
+                        <strong>Valid Mappings:</strong> ${validCount}/${totalCount}<br>
+                        <strong>Average Confidence:</strong> ${avgConfidence}%<br>
+                        <strong>Success Rate:</strong> ${(validCount/totalCount*100).toFixed(1)}%
+                    `;
+                    showResult('batchValidationResult', message, validCount === totalCount ? 'success' : 'error');
+                } else {
+                    showResult('batchValidationResult', `Error: ${result.detail}`, 'error');
+                }
+            } catch (error) {
+                if (error instanceof SyntaxError) {
+                    showResult('batchValidationResult', 'Invalid JSON format', 'error');
+                } else {
+                    showResult('batchValidationResult', `Network error: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        function loadSampleMapping() {
+            const sampleMapping = [
+                {
+                    "source_column": "USER_ID",
+                    "target_column": "user_id",
+                    "source_type": "NUMBER(10)",
+                    "target_type": "INTEGER"
+                },
+                {
+                    "source_column": "USERNAME",
+                    "target_column": "username",
+                    "source_type": "VARCHAR2(50)",
+                    "target_type": "VARCHAR(50)"
+                },
+                {
+                    "source_column": "EMAIL_ADDRESS",
+                    "target_column": "email",
+                    "source_type": "VARCHAR2(255)",
+                    "target_type": "VARCHAR(255)"
+                },
+                {
+                    "source_column": "CREATED_DATE",
+                    "target_column": "created_at",
+                    "source_type": "DATE",
+                    "target_type": "TIMESTAMP"
+                }
+            ];
+            document.getElementById('batchMappings').value = JSON.stringify(sampleMapping, null, 2);
+        }
+
+        // Mapping management functions
+        async function loadMappings() {
+            showLoading('mappingsList');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/mappings`);
+                const mappings = await response.json();
+
+                const mappingsListDiv = document.getElementById('mappingsList');
+                if (response.ok) {
+                    if (mappings.length === 0) {
+                        mappingsListDiv.innerHTML = '<p style="text-align: center; color: #64748b;">No mappings found. Create your first mapping!</p>';
+                    } else {
+                        mappingsListDiv.innerHTML = mappings.map(mapping => `
+                            <div class="mapping-item">
+                                <h4>${mapping.name}</h4>
+                                <p><strong>Table:</strong> ${mapping.config.table_name || 'Not specified'}</p>
+                                <p><strong>Columns:</strong> ${mapping.config.columns ? mapping.config.columns.length : 0}</p>
+                                <button class="btn btn-secondary" onclick="editMapping('${mapping.name}')">Edit</button>
+                                <button class="btn btn-danger" onclick="deleteMapping('${mapping.name}')">Delete</button>
+                            </div>
+                        `).join('');
+                    }
+                } else {
+                    mappingsListDiv.innerHTML = '<div class="alert alert-danger">Failed to load mappings</div>';
+                }
+            } catch (error) {
+                document.getElementById('mappingsList').innerHTML = 
+                    '<div class="alert alert-danger">Network error loading mappings</div>';
+            }
+        }
+
+        async function saveMapping() {
+            const name = document.getElementById('mappingName').value;
+            const configText = document.getElementById('mappingConfig').value;
+
+            if (!name || !configText.trim()) {
+                showResult('mappingSaveResult', 'Please provide both name and configuration', 'error');
+                return;
+            }
+
+            try {
+                const config = JSON.parse(configText);
+                showLoading('mappingSaveResult');
+
+                const response = await fetch(`${API_BASE_URL}/mappings/${name}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(config)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showResult('mappingSaveResult', 'Mapping saved successfully!', 'success');
+                    loadMappings(); // Refresh the mappings list
+                } else {
+                    showResult('mappingSaveResult', `Error: ${result.detail}`, 'error');
+                }
+            } catch (error) {
+                if (error instanceof SyntaxError) {
+                    showResult('mappingSaveResult', 'Invalid JSON configuration', 'error');
+                } else {
+                    showResult('mappingSaveResult', `Network error: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        async function editMapping(name) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/mappings/${name}`);
+                const mapping = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('mappingName').value = name;
+                    document.getElementById('mappingConfig').value = JSON.stringify(mapping, null, 2);
+                } else {
+                    showResult('mappingSaveResult', `Error loading mapping: ${mapping.detail}`, 'error');
+                }
+            } catch (error) {
+                showResult('mappingSaveResult', `Network error: ${error.message}`, 'error');
+            }
+        }
+
+        async function deleteMapping(name) {
+            if (!confirm(`Are you sure you want to delete the mapping "${name}"?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/mappings/${name}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    loadMappings(); // Refresh the mappings list
+                } else {
+                    const result = await response.json();
+                    alert(`Error deleting mapping: ${result.detail}`);
+                }
+            } catch (error) {
+                alert(`Network error: ${error.message}`);
+            }
+        }
+
+        function showCreateMapping() {
+            clearMappingForm();
+            const sampleConfig = {
+                "table_name": "example_table",
+                "columns": [
+                    {
+                        "source_column": "SOURCE_COL",
+                        "target_column": "target_col",
+                        "source_type": "VARCHAR2(100)",
+                        "target_type": "VARCHAR(100)"
+                    }
+                ]
+            };
+            document.getElementById('mappingConfig').value = JSON.stringify(sampleConfig, null, 2);
+        }
+
+        function clearMappingForm() {
+            document.getElementById('mappingName').value = '';
+            document.getElementById('mappingConfig').value = '';
+            document.getElementById('mappingSaveResult').innerHTML = '';
+        }
+
+        // Model management functions
+        async function trainModel() {
+            showLoading('modelTrainingResult');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/model/train`, {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    const message = `
+                        <strong>Model Training Complete!</strong><br>
+                        <strong>Accuracy:</strong> ${(result.accuracy * 100).toFixed(2)}%<br>
+                        <strong>Training Time:</strong> ${result.training_time?.toFixed(2) || 'N/A'} seconds<br>
+                        <strong>Model Type:</strong> ${result.model_type || 'Random Forest'}
+                    `;
+                    showResult('modelTrainingResult', message, 'success');
+                    updateMetrics(); // Refresh dashboard metrics
+                } else {
+                    showResult('modelTrainingResult', `Error: ${result.detail}`, 'error');
+                }
+            } catch (error) {
+                showResult('modelTrainingResult', `Network error: ${error.message}`, 'error');
+            }
+        }
+
+        async function getModelInfo() {
+            showLoading('modelMetrics');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/model/info`);
+                const result = await response.json();
+
+                const metricsDiv = document.getElementById('modelMetrics');
+                if (response.ok) {
+                    metricsDiv.innerHTML = `
+                        <div class="alert alert-info">
+                            <strong>Model Information</strong><br>
+                            <strong>Type:</strong> ${result.model_type || 'Random Forest'}<br>
+                            <strong>Accuracy:</strong> ${(result.accuracy * 100).toFixed(2)}%<br>
+                            <strong>Features:</strong> ${result.feature_count || 'N/A'}<br>
+                            <strong>Training Samples:</strong> ${result.training_samples || 'N/A'}<br>
+                            <strong>Last Updated:</strong> ${result.last_updated || 'N/A'}
+                        </div>
+                    `;
+                } else {
+                    metricsDiv.innerHTML = '<div class="alert alert-danger">Failed to load model information</div>';
+                }
+            } catch (error) {
+                document.getElementById('modelMetrics').innerHTML = 
+                    '<div class="alert alert-danger">Network error loading model info</div>';
+            }
+        }
+
+        async function updateModelConfig() {
+            const maxDepth = document.getElementById('maxDepth').value;
+            const nEstimators = document.getElementById('nEstimators').value;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/model/config`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        max_depth: parseInt(maxDepth),
+                        n_estimators: parseInt(nEstimators)
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert('Model configuration updated successfully!');
+                } else {
+                    alert(`Error: ${result.detail}`);
+                }
+            } catch (error) {
+                alert(`Network error: ${error.message}`);
+            }
+        }
+
+        // Health monitoring functions
+        async function checkHealth() {
+            showLoading('healthStatus');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/health`);
+                const result = await response.json();
+
+                const healthDiv = document.getElementById('healthStatus');
+                if (response.ok) {
+                    healthDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <strong>✅ System Healthy</strong><br>
+                            <strong>Status:</strong> ${result.status}<br>
+                            <strong>Version:</strong> ${result.version || '1.0.0'}<br>
+                            <strong>Uptime:</strong> ${result.uptime || 'N/A'}<br>
+                            <strong>Database:</strong> ${result.database_connected ? '✅ Connected' : '❌ Disconnected'}
+                        </div>
+                    `;
+                } else {
+                    healthDiv.innerHTML = '<div class="alert alert-danger">❌ System Unhealthy</div>';
+                }
+            } catch (error) {
+                document.getElementById('healthStatus').innerHTML = 
+                    '<div class="alert alert-danger">❌ Cannot connect to system</div>';
+            }
+
+            loadSystemMetrics();
+        }
+
+        async function loadSystemMetrics() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/health/metrics`);
+                const metrics = await response.json();
+
+                const metricsDiv = document.getElementById('systemMetrics');
+                if (response.ok) {
+                    metricsDiv.innerHTML = `
+                        <div class="metrics-grid">
+                            <div class="metric-card">
+                                <div class="metric-value">${metrics.cpu_usage || 'N/A'}%</div>
+                                <div class="metric-label">CPU Usage</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-value">${metrics.memory_usage || 'N/A'}%</div>
+                                <div class="metric-label">Memory Usage</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-value">${metrics.active_connections || 0}</div>
+                                <div class="metric-label">Active Connections</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-value">${metrics.requests_per_minute || 0}</div>
+                                <div class="metric-label">Requests/Min</div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    metricsDiv.innerHTML = '<div class="alert alert-danger">Failed to load system metrics</div>';
+                }
+            } catch (error) {
+                document.getElementById('systemMetrics').innerHTML = 
+                    '<div class="alert alert-danger">Network error loading metrics</div>';
+            }
+        }
+
+        async function testConnections() {
+            const oracleHost = document.getElementById('oracleHost').value;
+            const postgresHost = document.getElementById('postgresHost').value;
+
+            showLoading('connectionTestResult');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/health/connections`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        oracle_host: oracleHost || 'localhost',
+                        postgres_host: postgresHost || 'localhost'
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    const message = `
+                        <strong>Connection Test Results:</strong><br>
+                        <strong>Oracle:</strong> ${result.oracle_status ? '✅ Connected' : '❌ Failed'}<br>
+                        <strong>PostgreSQL:</strong> ${result.postgres_status ? '✅ Connected' : '❌ Failed'}<br>
+                        ${result.errors ? `<strong>Errors:</strong> ${result.errors.join(', ')}` : ''}
+                    `;
+                    showResult('connectionTestResult', message, 
+                        result.oracle_status && result.postgres_status ? 'success' : 'error');
+                } else {
+                    showResult('connectionTestResult', `Error: ${result.detail}`, 'error');
+                }
+            } catch (error) {
+                showResult('connectionTestResult', `Network error: ${error.message}`, 'error');
+            }
+        }
+
+        // Utility functions
+        function showResult(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="validation-result ${type}">${message}</div>`;
+        }
+
+        function showLoading(elementId) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = '<div class="loading show"><div class="spinner"></div>Loading...</div>';
+        }
+
+        // Initialize dashboard on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeDashboard();
+            loadMappings();
+        });
+
+        // Auto-refresh dashboard every 30 seconds
+        setInterval(updateMetrics, 30000);
+    </script>
+</body>
+</html>

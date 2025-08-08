@@ -1,133 +1,262 @@
-# =============================================================================
-# FILE: deploy.sh
-# =============================================================================
 #!/bin/bash
+# deploy.sh - Production Deployment Script
 
-set -e
+set -euo pipefail
 
-echo "🚀 Deploying Dynamic Data Mapping Validator..."
+# Configuration
+APP_NAME="ddmv-app"
+DEPLOY_DIR="/opt/${APP_NAME}"
+BACKUP_DIR="/opt/backups"
+LOG_FILE="/var/log/deploy.log"
+HEALTH_CHECK_URL="https://your-domain.com/health"
+MAX_HEALTH_CHECKS=30
+HEALTH_CHECK_INTERVAL=10
 
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-print_status() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+# Logging function
+log() {
+    echo -e "${GREEN}[$(date '+%Y-%m-%d %H:%M:%S')]${NC} $1" | tee -a "$LOG_FILE"
 }
 
-print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-# Check if Docker is installed
-if ! command -v docker &> /dev/null; then
-    print_error "Docker is not installed. Please install Docker first."
+error() {
+    echo -e "${RED}[$(date '+%Y-%m-%d %H:%M:%S')] ERROR:${NC} $1" | tee -a "$LOG_FILE"
     exit 1
-fi
+}
 
-# Check if Docker Compose is installed
-if ! command -v docker-compose &> /dev/null; then
-    print_error "Docker Compose is not installed. Please install Docker Compose first."
-    exit 1
-fi
+warning() {
+    echo -e "${YELLOW}[$(date '+%Y-%m-%d %H:%M:%S')] WARNING:${NC} $1" | tee -a "$LOG_FILE"
+}
 
-# Create necessary directories
-print_status "Creating project directories..."
-mkdir -p models reports logs schemas
-
-# Set permissions
-print_status "Setting directory permissions..."
-chmod 755 models reports logs schemas mappings sql src 2>/dev/null || true
-
-# Check if .env file exists, if not create from template
-if [ ! -f .env ]; then
-    if [ -f .env.template ]; then
-        print_status "Creating .env file..."
-        cp .env.template .env
-        print_warning "Please review and update .env file with your configuration"
-    else
-        print_error ".env.template not found. Cannot create .env file."
-        exit 1
+# Check if running as root
+check_permissions() {
+    if [[ $EUID -ne 0 ]]; then
+        error "This script must be run as root"
     fi
-fi
+}
 
-# Build and start services
-print_status "Building Docker images..."
-docker-compose build --no-cache
+# Backup current deployment
+backup_current() {
+    log "Creating backup of current deployment..."
+    
+    local backup_name="${APP_NAME}-$(date +%Y%m%d-%H%M%S)"
+    local backup_path="${BACKUP_DIR}/${backup_name}"
+    
+    mkdir -p "$BACKUP_DIR"
+    
+    # Backup application files
+    if [[ -d "$DEPLOY_DIR" ]]; then
+        cp -r "$DEPLOY_DIR" "$backup_path"
+        log "Application files backed up to $backup_path"
+    fi
+    
+    # Backup database
+    docker exec ddmv-postgres pg_dump -U ddmv_user ddmv_db > "${backup_path}/database.sql"
+    log "Database backed up to ${backup_path}/database.sql"
+    
+    # Cleanup old backups (keep last 7 days)
+    find "$BACKUP_DIR" -type d -name "${APP_NAME}-*" -mtime +7 -exec rm -rf {} \;
+    log "Old backups cleaned up"
+}
 
-print_status "Starting services..."
-docker-compose up -d
+# Update application code
+update_code() {
+    log "Updating application code..."
+    
+    cd "$DEPLOY_DIR"
+    
+    # Stash any local changes
+    git stash
+    
+    # Pull latest changes
+    git fetch origin
+    git checkout main
+    git pull origin main
+    
+    log "Code updated successfully"
+}
 
-# Wait for services to be healthy
-print_status "Waiting for services to be ready..."
-sleep 15
+# Update Docker images
+update_images() {
+    log "Updating Docker images..."
+    
+    cd "$DEPLOY_DIR"
+    
+    # Pull latest images
+    docker-compose -f docker-compose.prod.yml pull
+    
+    log "Docker images updated"
+}
 
-# Check service health
-check_service_health() {
-    local service=$1
-    local max_attempts=30
-    local attempt=1
+# Run database migrations
+run_migrations() {
+    log "Running database migrations..."
+    
+    # Check if migrations are needed
+    if docker exec ddmv-app alembic current | grep -q "head"; then
+        log "Database is up to date"
+        return 0
+    fi
+    
+    # Run migrations
+    docker exec ddmv-app alembic upgrade head
+    
+    if [[ $? -eq 0 ]]; then
+        log "Database migrations completed successfully"
+    else
+        error "Database migrations failed"
+    fi
+}
 
-    while [ $attempt -le $max_attempts ]; do
-        if docker-compose ps | grep -q "$service.*healthy\|$service.*Up"; then
-            print_success "$service is ready"
+# Deploy application
+deploy_app() {
+    log "Deploying application..."
+    
+    cd "$DEPLOY_DIR"
+    
+    # Start services with zero-downtime deployment
+    docker-compose -f docker-compose.prod.yml up -d --no-deps --remove-orphans app
+    
+    log "Application deployed"
+}
+
+# Health check
+health_check() {
+    log "Running health checks..."
+    
+    local attempts=0
+    while [[ $attempts -lt $MAX_HEALTH_CHECKS ]]; do
+        if curl -f -s "$HEALTH_CHECK_URL" > /dev/null; then
+            log "Health check passed"
             return 0
         fi
         
-        if [ $attempt -eq $max_attempts ]; then
-            print_error "$service failed to become ready"
-            return 1
-        fi
-        
-        print_status "Waiting for $service to be ready... (attempt $attempt/$max_attempts)"
-        sleep 5
-        ((attempt++))
+        attempts=$((attempts + 1))
+        warning "Health check failed (attempt $attempts/$MAX_HEALTH_CHECKS), retrying in ${HEALTH_CHECK_INTERVAL}s..."
+        sleep $HEALTH_CHECK_INTERVAL
     done
+    
+    error "Health checks failed after $MAX_HEALTH_CHECKS attempts"
 }
 
-# Check application readiness
-print_status "Waiting for application to be ready..."
-for i in {1..20}; do
-    if curl -f http://localhost:8000/status >/dev/null 2>&1; then
-        print_success "Application is ready!"
-        break
+# Cleanup old Docker resources
+cleanup() {
+    log "Cleaning up old Docker resources..."
+    
+    # Remove unused images
+    docker image prune -f
+    
+    # Remove unused volumes
+    docker volume prune -f
+    
+    # Remove unused networks
+    docker network prune -f
+    
+    log "Cleanup completed"
+}
+
+# Rollback function
+rollback() {
+    log "Rolling back to previous version..."
+    
+    # Get latest backup
+    local latest_backup
+    latest_backup=$(find "$BACKUP_DIR" -type d -name "${APP_NAME}-*" | sort -r | head -n1)
+    
+    if [[ -z "$latest_backup" ]]; then
+        error "No backup found for rollback"
     fi
-    if [ $i -eq 20 ]; then
-        print_error "Application failed to start"
-        docker-compose logs validator
+    
+    # Stop current services
+    cd "$DEPLOY_DIR"
+    docker-compose -f docker-compose.prod.yml down
+    
+    # Restore backup
+    rm -rf "${DEPLOY_DIR}.old"
+    mv "$DEPLOY_DIR" "${DEPLOY_DIR}.old"
+    cp -r "$latest_backup" "$DEPLOY_DIR"
+    
+    # Restore database
+    docker exec ddmv-postgres psql -U ddmv_user -d ddmv_db < "${latest_backup}/database.sql"
+    
+    # Start services
+    cd "$DEPLOY_DIR"
+    docker-compose -f docker-compose.prod.yml up -d
+    
+    log "Rollback completed"
+}
+
+# Send notification
+send_notification() {
+    local status=$1
+    local message=$2
+    
+    if [[ -n "${SLACK_WEBHOOK:-}" ]]; then
+        curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"🚀 Deployment ${status}: ${message}\"}" \
+            "$SLACK_WEBHOOK"
+    fi
+    
+    if [[ -n "${EMAIL_RECIPIENTS:-}" ]]; then
+        echo "$message" | mail -s "Deployment ${status}" "$EMAIL_RECIPIENTS"
+    fi
+}
+
+# Main deployment function
+main() {
+    local start_time
+    start_time=$(date +%s)
+    
+    log "Starting deployment of $APP_NAME"
+    
+    # Check permissions
+    check_permissions
+    
+    # Handle rollback option
+    if [[ "${1:-}" == "--rollback" ]]; then
+        rollback
+        send_notification "ROLLBACK" "Application rolled back successfully"
+        exit 0
+    fi
+    
+    # Create backup
+    backup_current
+    
+    # Update code and images
+    update_code
+    update_images
+    
+    # Run migrations
+    run_migrations
+    
+    # Deploy application
+    deploy_app
+    
+    # Health check
+    if ! health_check; then
+        warning "Health check failed, initiating rollback..."
+        rollback
+        send_notification "FAILED" "Deployment failed, rolled back to previous version"
         exit 1
     fi
-    sleep 3
-done
+    
+    # Cleanup
+    cleanup
+    
+    local end_time
+    end_time=$(date +%s)
+    local duration=$((end_time - start_time))
+    
+    log "Deployment completed successfully in ${duration}s"
+    send_notification "SUCCESS" "Deployment completed successfully in ${duration}s"
+}
 
-# Display status
-print_status "Checking deployment status..."
-docker-compose ps
+# Trap errors and rollback
+trap 'error "Deployment failed, initiating rollback..."; rollback; send_notification "FAILED" "Deployment failed and was rolled back"' ERR
 
-echo ""
-print_success "🎉 Deployment completed successfully!"
-echo ""
-echo "Access the application at:"
-echo "  Web Interface: http://localhost:8000"
-echo "  API Documentation: http://localhost:8000/docs"
-echo ""
-echo "Database connections:"
-echo "  Source DB: localhost:5432 (source_system/source_user/source_pass)"
-echo "  Target DB: localhost:5433 (target_system/target_user/target_pass)"
-echo ""
-echo "Useful commands:"
-echo "  View logs: docker-compose logs -f validator"
-echo "  Stop services: docker-compose down"
-echo "  Restart: docker-compose restart"
-echo "  View status: docker-compose ps"
+# Run main function
+main "$@"

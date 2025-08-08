@@ -18,6 +18,11 @@ from ..validation_engine import ValidationEngine
 from ..mapping_manager import MappingManager
 from ..database_connector import DatabaseConnector
 
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from fastapi import Request
+from fastapi.responses import HTMLResponse
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -83,6 +88,10 @@ app = FastAPI(
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json"
 )
+
+# Add after creating your FastAPI app
+app.mount("/static", StaticFiles(directory="web/static"), name="static")
+templates = Jinja2Templates(directory="web/templates")
 
 # CORS middleware
 app.add_middleware(
@@ -164,6 +173,11 @@ async def root():
             </body>
         </html>
         """)
+
+# Add this route to serve the dashboard
+@app.get("/", response_class=HTMLResponse)
+async def dashboard(request: Request):
+    return templates.TemplateResponse("dashboard.html", {"request": request})
 
 # Global exception handler
 @app.exception_handler(Exception)
