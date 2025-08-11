@@ -17,7 +17,7 @@ services:
     environment:
       - ENV=production
       - DATABASE_URL=postgresql://ddmv_user:${DB_PASSWORD}@postgres:5432/ddmv_db
-      - ORACLE_URL=oracle://${ORACLE_USER}:${ORACLE_PASSWORD}@oracle:1521/xe
+      - SOURCE_DB_URL=postgresql://source_user:${SOURCE_DB_PASSWORD}@source-postgres:5432/source_db
       - REDIS_URL=redis://redis:6379/0
       - SECRET_KEY=${SECRET_KEY}
       - JWT_SECRET=${JWT_SECRET}
@@ -35,7 +35,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      oracle:
+      source-postgres:
         condition: service_healthy
     networks:
       - ddmv-network
@@ -69,26 +69,27 @@ services:
       timeout: 5s
       retries: 5
 
-  # Oracle Database (for testing)
-  oracle:
-    image: container-registry.oracle.com/database/express:21.3.0-xe
-    container_name: ddmv-oracle
+  # Source PostgreSQL Database
+  source-postgres:
+    image: postgres:15-alpine
+    container_name: ddmv-source-postgres
     restart: unless-stopped
     environment:
-      - ORACLE_PWD=${ORACLE_PASSWORD}
-      - ORACLE_CHARACTERSET=AL32UTF8
+      - POSTGRES_DB=source_db
+      - POSTGRES_USER=source_user
+      - POSTGRES_PASSWORD=${SOURCE_DB_PASSWORD}
+      - POSTGRES_INITDB_ARGS=--auth-host=md5
     volumes:
-      - oracle_data:/opt/oracle/oradata
-      - ./init-scripts/oracle:/docker-entrypoint-initdb.d
+      - source_postgres_data:/var/lib/postgresql/data
+      - ./init-scripts/source-postgres:/docker-entrypoint-initdb.d
     ports:
-      - "1521:1521"
-      - "5500:5500"
+      - "5433:5432"
     networks:
       - ddmv-network
     healthcheck:
-      test: ["CMD", "sqlplus", "-S", "system/${ORACLE_PASSWORD}@localhost:1521/xe", "<<<", "SELECT 1 FROM dual;"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD-SHELL", "pg_isready -U source_user -d source_db"]
+      interval: 10s
+      timeout: 5s
       retries: 5
 
   # Redis Cache
@@ -210,7 +211,7 @@ services:
 
 volumes:
   postgres_data:
-  oracle_data:
+  source_postgres_data:
   redis_data:
   prometheus_data:
   grafana_data:

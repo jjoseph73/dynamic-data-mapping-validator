@@ -161,7 +161,8 @@ logs-db: ## Show database logs
 health: ## Check service health
 	@echo "$(GREEN)Checking service health...$(NC)"
 	@curl -f http://localhost/health && echo "$(GREEN)✓ Application is healthy$(NC)" || echo "$(RED)✗ Application is unhealthy$(NC)"
-	@docker-compose -f $(COMPOSE_FILE) exec postgres pg_isready -U ddmv_user && echo "$(GREEN)✓ Database is healthy$(NC)" || echo "$(RED)✗ Database is unhealthy$(NC)"
+	@docker-compose -f $(COMPOSE_FILE) exec postgres pg_isready -U ddmv_user && echo "$(GREEN)✓ Main Database is healthy$(NC)" || echo "$(RED)✗ Main Database is unhealthy$(NC)"
+	@docker-compose -f $(COMPOSE_FILE) exec source-postgres pg_isready -U source_user && echo "$(GREEN)✓ Source Database is healthy$(NC)" || echo "$(RED)✗ Source Database is unhealthy$(NC)"
 	@docker-compose -f $(COMPOSE_FILE) exec redis redis-cli ping && echo "$(GREEN)✓ Redis is healthy$(NC)" || echo "$(RED)✗ Redis is unhealthy$(NC)"
 
 monitor: ## Open monitoring dashboard

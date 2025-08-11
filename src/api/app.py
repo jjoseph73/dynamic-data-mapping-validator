@@ -81,7 +81,7 @@ async def lifespan(app: FastAPI):
 # Create FastAPI application
 app = FastAPI(
     title="Dynamic Data Mapping Validator",
-    description="AI-powered data mapping validation system for Oracle-to-PostgreSQL migrations",
+    description="AI-powered data mapping validation system for PostgreSQL-to-PostgreSQL migrations",
     version="1.0.0",
     lifespan=lifespan,
     docs_url="/api/docs",
