@@ -13,9 +13,6 @@ RUN apt-get update && apt-get install -y \
     g++ \
     curl \
     postgresql-client \
-    oracle-instantclient-basic \
-    oracle-instantclient-devel \
-    libaio1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app user
@@ -59,8 +56,6 @@ FROM python:3.11-slim as production
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
     postgresql-client \
-    oracle-instantclient-basic \
-    libaio1 \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
