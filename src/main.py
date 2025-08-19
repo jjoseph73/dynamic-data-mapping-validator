@@ -14,6 +14,9 @@ src_path = Path(__file__).parent
 if str(src_path) not in sys.path:
     sys.path.insert(0, str(src_path))
 
+# Import the FastAPI app so it's available at module level for ASGI servers
+from api.app import app
+
 def setup_logging(log_level: str = "INFO") -> None:
     """Configure application logging"""
     logging.basicConfig(
