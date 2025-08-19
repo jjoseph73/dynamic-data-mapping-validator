@@ -152,7 +152,7 @@ class MappingListResponse(BaseModel):
 
 class MappingCreateRequest(BaseModel):
     """Request model for creating mappings"""
-    name: str = Field(min_length=1, max_length=128, regex=r'^[a-zA-Z0-9_-]+$')
+    name: str = Field(min_length=1, max_length=128, pattern=r'^[a-zA-Z0-9_-]+$')
     config: MappingConfigModel
     description: Optional[str] = Field(max_length=500)
     tags: List[str] = Field(default_factory=list, max_items=10)

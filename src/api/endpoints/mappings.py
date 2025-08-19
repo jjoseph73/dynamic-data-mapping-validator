@@ -343,7 +343,7 @@ async def validate_mapping_syntax(
 @router.get("/{mapping_name}/export")
 async def export_mapping(
     mapping_name: str = Path(..., min_length=1, max_length=128, description="Name of the mapping"),
-    format: str = Query("json", regex="^(json|yaml)$", description="Export format"),
+    format: str = Query("json", pattern="^(json|yaml)$", description="Export format"),
     manager: MappingManager = Depends(get_mapping_manager)
 ):
     """
