@@ -15,7 +15,7 @@ from ..validation_models import (
     ModelDiagnosticsResponse,
     SystemConfigResponse
 )
-from ...validation_engine import ValidationEngine
+from ..validation_engine import ValidationEngine
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
