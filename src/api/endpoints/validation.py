@@ -17,7 +17,7 @@ from ..validation_models import (
     ColumnValidationResponse,
     ValidationHistoryResponse
 )
-from ..validation_engine import ValidationEngine
+from validation_engine import ValidationEngine
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

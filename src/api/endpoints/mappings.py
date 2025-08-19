@@ -16,7 +16,7 @@ from ..validation_models import (
     MappingResponse,
     ErrorResponse
 )
-from ..mapping_manager import MappingManager
+from mapping_manager import MappingManager
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
