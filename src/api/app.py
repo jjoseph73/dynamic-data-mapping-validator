@@ -45,8 +45,13 @@ async def lifespan(app: FastAPI):
     
     try:
         # Initialize database connector
-        db_connector = DatabaseConnector()
-        await db_connector.initialize()
+        db_connector = DatabaseConnector(
+            host=os.getenv('DATABASE_HOST', 'ddmv-postgres'),
+            port=int(os.getenv('DATABASE_PORT', 5432)),
+            database=os.getenv('DATABASE_NAME', 'validation_db'),
+            username=os.getenv('DATABASE_USER', 'postgres'),
+            password=os.getenv('DATABASE_PASSWORD', 'postgres')
+        )
         logger.info("Database connector initialized")
         
         # Initialize mapping manager
@@ -54,7 +59,7 @@ async def lifespan(app: FastAPI):
         logger.info("Mapping manager initialized")
         
         # Initialize validation engine
-        validation_engine = ValidationEngine(db_connector)
+        validation_engine = ValidationEngine(mapping_manager)
         logger.info("Validation engine initialized")
         
         # Load any existing model
@@ -74,8 +79,6 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     logger.info("Shutting down Dynamic Data Mapping Validator API...")
-    if db_connector:
-        await db_connector.close()
     logger.info("API shutdown completed")
 
 # Create FastAPI application
