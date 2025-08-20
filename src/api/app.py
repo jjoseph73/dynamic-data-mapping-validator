@@ -14,9 +14,9 @@ from pathlib import Path
 
 # Import endpoint routers
 from .endpoints import validation, mappings, model, health
-from ..validation_engine import ValidationEngine
-from ..mapping_manager import MappingManager
-from ..database_connector import DatabaseConnector
+from validation_engine import ValidationEngine
+from mapping_manager import MappingManager
+from database_connector import DatabaseConnector
 
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
